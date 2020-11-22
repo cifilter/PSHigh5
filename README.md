@@ -188,7 +188,8 @@ These steps only need to be performed one time. After that, you just need to fol
      * An error occurs
      * The PlayStation Direct queue is detected
      * A PlayStation 5 console is available to puchase on the product page!
-     * **The script is explicitly terminated by pressing Ctrl + C**
+     * The script is explicitly terminated by pressing Ctrl + C
+     * The browser window is closed
 
 1. **Understand How the Script Works**
 
@@ -221,7 +222,8 @@ These steps only need to be performed one time. After that, you just need to fol
     
     **You can always terminate the script by pressing Ctrl + C in `Terminal.app`, or by
     quitting `Terminal.app` altogether (⌘ + Q).** Otherwise, it will continue to execute
-    infinitely until a termination event occurs.
+    infinitely until a termination event occurs. Alternately, you can close the browser window
+    that the script creates, and the script will terminate.
 
 1. **Making Changes to the Script**
 

@@ -44,7 +44,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     // could result in an unexpected rendered DOM due to mobile-friendly display widths.
     let window: NSWindow = .init(
         contentRect: NSMakeRect(0.0, 0.0, 960.0, 540.0),
-        styleMask: [.titled, .resizable],
+        styleMask: [.titled, .resizable, .closable],
         backing: .buffered,
         defer: false,
         screen: nil
@@ -55,6 +55,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     private lazy var script: Script = .init(webView: self.webView)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        self.window.delegate = self
         self.window.makeKeyAndOrderFront(nil)
 
         self.webView.frame = self.window.contentView?.bounds ?? .zero
@@ -68,9 +69,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
 
 }
 
+// MARK: - Window Delegate
+
+extension AppDelegate: NSWindowDelegate {
+
+    // See 'NSWindowDelegate`.
+    func windowWillClose(_ notification: Notification) {
+        app.terminate(self)
+    }
+
+}
+
 // MARK: - App Execution
 
-// This creates an ad-hoc `NSApplication` instance and starts the main run loop.
+// This creates an ad-hoc application delegate and starts the main run loop.
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
