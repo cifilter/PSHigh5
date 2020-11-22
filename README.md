@@ -157,7 +157,7 @@ These steps only need to be performed one time. After that, you just need to fol
 
 1. **Move to the Script Directory**
 
-    `Terminal.app` needs to **`c`**hange **`d`**irectories (`cd`) to the directory (AKA folder)
+    `Terminal.app` needs to `c`hange `d`irectories (`cd`) to the directory (AKA folder)
     where `PSHigh5` is.
     
     The easiest way to do this is to first type **`cd`**, followed by a space (press **Spacebar**).
@@ -233,7 +233,7 @@ These steps only need to be performed one time. After that, you just need to fol
     Swift or programming in general, you should be able to make some changes here and there based
     on the comments. Save any changes, and re-run the script.
 
-## Features
+## Versions
 
 ### v1.0
 
@@ -243,6 +243,11 @@ These steps only need to be performed one time. After that, you just need to fol
 * Logs as much information to the console as is useful
 * Plays sounds for events that the user should respond to: store queue is up, or the
 product itself is available to add to your cart
+
+### v1.1
+
+* Fixes CAPTCHA detection
+* Re-runs script asynchronously to free main thread
 
 ## Contact
 

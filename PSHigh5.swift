@@ -22,7 +22,7 @@
 //
 // -------------------------------------------------------------------------------
 
-// v1.0
+// v1.1
 
 // MARK: - Imports
 
@@ -172,6 +172,8 @@ class Script: NSObject {
             self.productPageUrl = url
 
             let urlRequest = URLRequest(url: url)
+
+            self.webView.navigationDelegate = self
             self.webView.load(urlRequest)
         }
 
@@ -181,6 +183,12 @@ class Script: NSObject {
             Thread.sleep(forTimeInterval: delay)
             executeScript()
         }
+    }
+
+    /// Stops the web view from loading any additional resources on the current product page.
+    func stop() {
+        self.webView.stopLoading()
+        self.webView.navigationDelegate = nil
     }
 
     /// Evaluates the loaded product page's HTML.
@@ -200,7 +208,7 @@ class Script: NSObject {
                     self.log("Product page URL: \(self.productPageUrl.absoluteString)")
 
                     self.playSound(named: "alert.m4a", andExitWith: .success)
-                } else if html.contains("Recaptcha requires verification.") {
+                } else if html.contains("We’re trying to get you in") {
                     // If the script gets to this point, then it has encountered a CAPTCHA challenge _not_
                     // related to the store queue. As of 11/19/2020, it appears that this rate-limiting CAPTCHA
                     // for regular page views can be subverted by simply reloading the page immediately. If this
@@ -212,6 +220,7 @@ class Script: NSObject {
                         self.run(after: 3.0)
                     } else {
                         self.promptToSolveCAPTCHA()
+                        self.stop()
                     }
                 } else {
                     // If the script gets to this point, then it means the product page was able to be successfully
@@ -231,7 +240,7 @@ class Script: NSObject {
                             // At this point, the product page has been loaded successfully, but the product is out
                             // of stock. After a short delay, the script will be executed again.
                             self.log("PS5 is sold out. 😡 Trying again...")
-                            self.run(after: 3.0)
+                            self.run(asynchronously: true, after: 3.0)
                         }
                     } catch {
                         self.exitWith(.generalError, error.localizedDescription)
