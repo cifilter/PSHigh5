@@ -232,7 +232,7 @@ class Script: NSObject {
                     self.exitWith(.generalError, error?.localizedDescription ?? nil)
                 }
 
-                if html.contains("When you reach the front of the queue") {
+                if html.contains("<h4>Important info:</h4>") {
                     // If the script gets to this point, then it has detected
                     // that the store page is showing the product queue. An
                     // alert sound will be played to notify the user.
