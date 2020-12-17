@@ -238,6 +238,9 @@ These steps only need to be performed one time. After that, you just need to fol
 
 ## Versions
 
+### v1.2.1
+This updates the HTML string the script checks for to detect the queue.
+
 ### v1.2
 
 This release changes the core script logic to create a completely new web view for each page load. This should prevent any cached page data, cookies, etc. from affecting subsequent page requests.
