@@ -28,7 +28,8 @@ add a PS5 to your cart).
 
 1. **macOS**: `PSHigh5` is a macOS-only script as it relies on AppKit to create a
 browser it can read. While Swift itself is available for multiple platforms, AppKit
-is only available on macOS.
+is only available on macOS. **`swift-sh` doesn't appear to work with macOS 11 (Big
+Sur) yet, so this script won't run on that version of macOS yet.**
 
 1. **Xcode**: Executing Swift scripts requires the `swift` shell command, which is
 available after [installing Xcode](https://apps.apple.com/us/app/xcode/id497799835?mt=12).
@@ -237,6 +238,15 @@ These steps only need to be performed one time. After that, you just need to fol
 
 ## Versions
 
+### v1.2
+
+This release changes the core script logic to create a completely new web view for each page load. This should prevent any cached page data, cookies, etc. from affecting subsequent page requests.
+
+### v1.1
+
+* Fixes CAPTCHA detection
+* Re-runs script asynchronously to free main thread
+
 ### v1.0
 
 * Runs locally on your system as a shell script
@@ -245,11 +255,6 @@ These steps only need to be performed one time. After that, you just need to fol
 * Logs as much information to the console as is useful
 * Plays sounds for events that the user should respond to: store queue is up, or the
 product itself is available to add to your cart
-
-### v1.1
-
-* Fixes CAPTCHA detection
-* Re-runs script asynchronously to free main thread
 
 ## Contact
 
