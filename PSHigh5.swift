@@ -31,17 +31,23 @@ import WebKit
 
 import SwiftSoup // @scinfu
 
-// The core premise of this script involves rendering the product site's HTML in a web browser;
-// attempting to simply request the contents of the page URL will return a shallow "your browser
-// must support JavaScript" page. Techniques to use various headless browser libraries failed, so
-// this script relies on the awesome WebKit framework to use its browser to do all the heavy lifting.
+/// The core premise of this script involves rendering the product site's HTML
+/// in a web browser; attempting to simply request the contents of the page URL
+/// will return a shallow "your browser must support JavaScript" page.
+/// Techniques to use various headless browser libraries failed, so this script
+/// relies on the awesome WebKit framework to use its browser to do all the
+/// heavy lifting.
 
 // MARK: - AppKit Hook
 
 class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
 
-    // This window can be any size you want; however, it's _possible_ that a very narrow window size
-    // could result in an unexpected rendered DOM due to mobile-friendly display widths.
+    // MARK: - Properties
+
+    /// The main window to display the webview.
+    ///
+    /// - Note: `contentRect` can be adjusted to change the size of the window.
+    ///
     let window: NSWindow = .init(
         contentRect: NSMakeRect(0.0, 0.0, 960.0, 540.0),
         styleMask: [.titled, .resizable, .closable],
@@ -50,21 +56,39 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         screen: nil
     )
 
-    private let webView: WKWebView = .init()
+    /// The web view that loads product pages for the script.
+    private(set) var webView: WKWebView = .init()
 
-    private lazy var script: Script = .init(webView: self.webView)
+    /// The core script.
+    private lazy var script: Script = .init()
 
+    // MARK: - Initialization
+
+    // See `NSApplicationDelegate`.
     func applicationDidFinishLaunching(_ notification: Notification) {
         self.window.delegate = self
         self.window.makeKeyAndOrderFront(nil)
+
+        self.script.run()
+    }
+
+    /// Configures a new instance of `WKWebView`.
+    ///
+    /// To avoid any potential caching or leftover data from a previous web
+    /// request, an entirely new web view is created each time a product page is
+    /// loaded.
+    ///
+    func setUpWebView() {
+        self.webView.stopLoading()
+        self.webView.removeFromSuperview()
+
+        self.webView = .init()
 
         self.webView.frame = self.window.contentView?.bounds ?? .zero
         self.webView.autoresizingMask = [.width, .height]
         self.webView.navigationDelegate = self
 
         self.window.contentView?.addSubview(self.webView)
-
-        self.script.run()
     }
 
 }
@@ -94,22 +118,25 @@ class Script: NSObject {
 
     // MARK: - Properties
 
-    /// The principle web view that renders product pages, and from which the resultant HTML is analyzed.
-    let webView: WKWebView
+    /// The principle web view that renders product pages, and from which the
+    /// resultant HTML is analyzed.
+    var webView: WKWebView { delegate.webView }
 
-    /// A timer that starts when a product page load operation begins. If this timer exceeds a certain number
-    /// of seconds—defined below—then the page load is cancelled and attempted again.
+    /// A timer that starts when a product page load operation begins. If this
+    /// timer exceeds a certain number of seconds—defined below—then the page
+    /// load is cancelled and attempted again.
     private var pageLoadingTimer: Timer?
 
     /// The current product page URL the script will use.
     private var productPageUrl: URL = .init(fileURLWithPath: "")  // Placeholder for non-optional URL
 
-    /// The number of successive CAPTCHAs that have been displayed. If this exceeds a certain number—defined
-    /// below—then the user is prompted to complete the CAPTCHA challenge in order for the script to resume.
+    /// The number of successive CAPTCHAs that have been displayed. If this
+    /// exceeds a certain number—defined below—then the user is prompted to
+    /// complete the CAPTCHA challenge in order for the script to resume.
     private var successiveCAPTCHACount: Int = 0
 
-    /// The web content rules that block the web view from loading a massive product video file every time
-    /// the page is loaded.
+    /// The web content rules that block the web view from loading a massive
+    /// product video file every time the page is loaded.
     static private let blockRules =
         """
         [{
@@ -133,20 +160,8 @@ class Script: NSObject {
 
     // MARK: - Initialization
 
-    /// Creates a new script instance using the provided web view.
-    ///
-    /// - Parameter webView: The web view that is used to load PlayStation 5 product pages to analyze.
-    ///
-    init(webView: WKWebView) {
-        self.webView = webView
-
-        super.init()
-
-        self.configureWebView()
-    }
-
-    /// Configures the provided web view to start loading page content, excluding content defined by the static
-    /// `blockRules` variable.
+    /// Configures the provided web view to start loading page content,
+    /// excluding content defined by the static `blockRules` variable.
     private func configureWebView() {
         self.webView.navigationDelegate = self
 
@@ -169,14 +184,20 @@ class Script: NSObject {
     /// Executes the script.
     ///
     /// - Parameters:
-    ///   - asynchronous: Whether or not the script should be executed asynchronously.
-    ///   - delay: How long of a delay before performing the actual script execution.
+    ///   - asynchronous: Whether or not the script should be executed
+    ///   asynchronously.
+    ///   - delay: How long of a delay before performing the actual script
+    ///   execution.
     ///
-    /// - Note: If `asynchronous` is `true` and `delay` is non-zero, this function will still immediately return.
-    /// The asynchronous dispatch will have been enqueued with the provided delay.
+    /// - Note: If `asynchronous` is `true` and `delay` is non-zero, this
+    /// function will still immediately return. The asynchronous dispatch will
+    /// have been enqueued with the provided delay.
     ///
     func run(asynchronously asynchronous: Bool = false, after delay: TimeInterval = 0.0) {
         let executeScript = {
+            delegate.setUpWebView()
+            self.configureWebView()
+            
             guard let url = URL.PS5.next() else {
                 self.exitWith(.generalError, "Invalid product page URL.")
             }
@@ -184,8 +205,6 @@ class Script: NSObject {
             self.productPageUrl = url
 
             let urlRequest = URLRequest(url: url)
-
-            self.webView.navigationDelegate = self
             self.webView.load(urlRequest)
         }
 
@@ -214,18 +233,21 @@ class Script: NSObject {
                 }
 
                 if html.contains("When you reach the front of the queue") {
-                    // If the script gets to this point, then it has detected that the store page is showing
-                    // the product queue. An alert sound will be played to notify the user.
+                    // If the script gets to this point, then it has detected
+                    // that the store page is showing the product queue. An
+                    // alert sound will be played to notify the user.
                     self.log("PlayStation Direct queue is up! ⚠️", withPrompt: true)
                     self.log("Product page URL: \(self.productPageUrl.absoluteString)")
 
                     self.playSound(named: "alert.m4a", andExitWith: .success)
                 } else if html.contains("We’re trying to get you in") {
-                    // If the script gets to this point, then it has encountered a CAPTCHA challenge _not_
-                    // related to the store queue. As of 11/19/2020, it appears that this rate-limiting CAPTCHA
-                    // for regular page views can be subverted by simply reloading the page immediately. If this
-                    // fails three times, then the user is prompted to solve the CAPTCHA and press **Enter** to
-                    // proceed.
+                    // If the script gets to this point, then it has encountered
+                    // a CAPTCHA challenge _not_ related to the store queue. As
+                    // of 11/19/2020, it appears that this rate-limiting CAPTCHA
+                    // for regular page views can be subverted by simply
+                    // reloading the page immediately. If this fails three
+                    // times, then the user is prompted to solve the CAPTCHA and
+                    // press **Enter** to proceed.
                     if self.successiveCAPTCHACount < 3 {
                         self.log("Product page CAPTCHA detected! Attempting to subvert it...")
                         self.successiveCAPTCHACount += 1
@@ -235,22 +257,26 @@ class Script: NSObject {
                         self.stop()
                     }
                 } else {
-                    // If the script gets to this point, then it means the product page was able to be successfully
-                    // loaded.
+                    // If the script gets to this point, then it means the
+                    // product page was able to be successfully loaded.
                     self.successiveCAPTCHACount = 0
 
                     do {
                         let document = try SwiftSoup.parse(html)
                         if self.heroProductIsInStock(in: document) {
-                            // At this point, the product page has been loaded successfully, and an "Add to Cart"
-                            // button was detected for the PlayStation 5. A fanfare sound is played to alert the user.
+                            // At this point, the product page has been loaded
+                            // successfully, and an "Add to Cart" button was
+                            // detected for the PlayStation 5. A fanfare sound
+                            // is played to alert the user.
                             self.log("High five! 🙏 PS5 is in stock! 🥳", withPrompt: true)
                             self.log("Product page URL: \(self.productPageUrl.absoluteString)")
 
                             self.playSound(named: "success.m4a", andExitWith: .success)
                         } else {
-                            // At this point, the product page has been loaded successfully, but the product is out
-                            // of stock. After a short delay, the script will be executed again.
+                            // At this point, the product page has been loaded
+                            // successfully, but the product is out of stock.
+                            // After a short delay, the script will be executed
+                            // again.
                             self.log("PS5 is sold out. 😡 Trying again...")
                             self.run(asynchronously: true, after: 3.0)
                         }
@@ -262,12 +288,14 @@ class Script: NSObject {
         )
     }
 
-    /// Whether or not the provided HTML document indicates that the hero product—that is, the PlayStation 5 and
-    /// _not_ some other product lower down the page—is available to be added to a cart.
+    /// Whether or not the provided HTML document indicates that the hero
+    /// product—that is, the PlayStation 5 and _not_ some other product lower
+    /// down the page—is available to be added to a cart.
     ///
     /// - Parameter document: A parsed `SwiftSoup.Document` instance.
     ///
-    /// - Returns `true` if an "Add to Cart" button was detected in the correct place. Otherwise, `false`.
+    /// - Returns `true` if an "Add to Cart" button was detected in the correct
+    /// place. Otherwise, `false`.
     ///
     private func heroProductIsInStock(in document: Document) -> Bool {
         let addToCartButtonIsVisible =
@@ -283,8 +311,9 @@ class Script: NSObject {
     ///
     /// - Parameters:
     ///   - message: The text message to log.
-    ///   - shouldPrompt: Whether or not a `BEL` character should be prepended to `message`, which results in
-    ///   `Termina.app` bouncing in the Dock and showing a badge to get the user's attention.
+    ///   - shouldPrompt: Whether or not a `BEL` character should be prepended
+    ///   to `message`, which results in `Termina.app` bouncing in the Dock and
+    ///   showing a badge to get the user's attention.
     ///
     fileprivate func log(_ message: String, withPrompt shouldPrompt: Bool = false) {
         let message = shouldPrompt ? "\u{7}" + message : message
@@ -295,10 +324,11 @@ class Script: NSObject {
     ///
     /// - Parameters:
     ///   - status: The `ExitStatus` with which to exit the script.
-    ///   - message: An optional text message to display along with the exit action.
+    ///   - message: An optional text message to display along with the exit
+    ///   action.
     ///
-    /// - Returns `Never` to indicate that this function never returns; that is, execution is unconditionally
-    /// halted at this point.
+    /// - Returns `Never` to indicate that this function never returns; that is,
+    /// execution is unconditionally halted at this point.
     ///
     fileprivate func exitWith(_ status: ExitStatus, _ message: String? = nil) -> Never {
         let output: String = ["\(status)", message].compactJoined(separator: ": ")
@@ -317,8 +347,9 @@ extension Script: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         self.log("Began loading product page.")
 
-        // Change the time interval value below to affect how long the script will wait for a page to finish
-        // loading before it cancels it and tries again.
+        // Change the time interval value below to affect how long the script
+        // will wait for a page to finish loading before it cancels it and tries
+        // again.
         self.pageLoadingTimer?.invalidate()
         self.pageLoadingTimer = .scheduledTimer(withTimeInterval: 10.0, repeats: false) { [weak self] _ in
             self?.log("Page loading took too long. Reloading...")
@@ -361,8 +392,8 @@ private extension Script {
         /// The script exited with an error code.
         case error(Int32)
 
-        /// A convenience variable that represents a general script exit error, which is generally used
-        /// universally to indicate a problem.
+        /// A convenience variable that represents a general script exit error,
+        /// which is generally used universally to indicate a problem.
         static var generalError: Self { .error(1) }
 
         /// The exit code associated with the exit status.
@@ -396,7 +427,8 @@ private extension Script {
     ///
     /// - Parameter command: The full command string to execute in the shell.
     ///
-    /// - Returns A tuple containing the command output and exit termination status of the command's execution.
+    /// - Returns A tuple containing the command output and exit termination
+    /// status of the command's execution.
     ///
     @discardableResult func shell(_ command: String) -> (String?, Int32) {
         let task = Process()
@@ -417,10 +449,10 @@ private extension Script {
     /// Plays a sound file.
     ///
     /// - Parameters:
-    ///   - filename: The filename of the audio file inside the root-level `.sounds` folder to play. The extension
-    ///   should be included.
-    ///   - exitStatus: An optional exit status to emit after playing the sound, which results in the termination
-    ///   of the script.
+    ///   - filename: The filename of the audio file inside the root-level
+    ///   `.sounds` folder to play. The extension should be included.
+    ///   - exitStatus: An optional exit status to emit after playing the sound,
+    ///   which results in the termination of the script.
     ///
     func playSound(named filename: String, andExitWith exitStatus: ExitStatus? = nil) {
         DispatchQueue.global().async {
@@ -431,8 +463,9 @@ private extension Script {
 
     /// Prompts the user to solve the displayed CAPTCHA in the browser window.
     ///
-    /// - Important: The script will halt here until **Enter** it pressed in the terminal window. The user should
-    /// first solve the CAPTCHA challenge in the browser window before resuming the script.
+    /// - Important: The script will halt here until **Enter** it pressed in the
+    /// terminal window. The user should first solve the CAPTCHA challenge in
+    /// the browser window before resuming the script.
     ///
     func promptToSolveCAPTCHA() {
         self.log("Couldn't subvert CAPTCHA...", withPrompt: true)
@@ -450,7 +483,8 @@ private extension Array where Element == String? {
 
     /// Joins an non-optional string components.
     ///
-    /// - Parameter separator: The string separator to insert between each string component.
+    /// - Parameter separator: The string separator to insert between each
+    /// string component.
     ///
     /// - Returns The resultant joined string.
     ///
@@ -464,7 +498,8 @@ private extension Optional {
 
     /// Performs a function only if `self` is non-optional.
     ///
-    /// - Parameter f: A throwing function that takes in a non-optional wrapped value and returns `Void`.
+    /// - Parameter f: A throwing function that takes in a non-optional wrapped
+    /// value and returns `Void`.
     ///
     func `do`(_ f: (Wrapped) throws -> Void) rethrows {
         guard let unwrapped = self else { return }
@@ -509,8 +544,9 @@ private extension URL {
 
         /// Returns the next product URL.
         ///
-        /// - Returns The URL of the next product in `Self.all`, wrapping back around to the beginning if the
-        /// next index would exceed the total number of URLs.
+        /// - Returns The URL of the next product in `Self.all`, wrapping back
+        /// around to the beginning if the next index would exceed the total
+        /// number of URLs.
         ///
         static func next() -> URL? {
             Self.nextIndex = (Self.nextIndex + 1) % Self.all.count
